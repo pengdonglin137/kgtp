@@ -5,8 +5,9 @@ obj-m := gtp.o
 endif
 
 MODULEVERSION := 20140510+
+PWD  := $(shell pwd)
 
-INSTALL ?= /home/pengdonglin/src/kgtp/install
+INSTALL ?= $(PWD)/../install
 KERNELDIR ?= /home/pengdonglin/src/qemu/aarch32/linux-4.10
 OUT ?= /home/pengdonglin/src/qemu/aarch32/linux-4.10/out_aarch32
 CROSS_COMPILE ?= arm-none-linux-gnueabi-
@@ -18,7 +19,6 @@ ARCH ?= arm
 
 export CONFIG_DEBUG_INFO=y
 
-PWD  := $(shell pwd)
 ifeq ($(D),1)
 EXTRA_CFLAGS += -DGTPDEBUG
 endif
