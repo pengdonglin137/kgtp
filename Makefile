@@ -6,14 +6,15 @@ endif
 
 MODULEVERSION := 20140510+
 
-KERNELVERSION ?= $(shell uname -r)
-KERNELDIR ?= /lib/modules/$(KERNELVERSION)/build/
-CROSS_COMPILE ?=
-MODULEDIR ?= /lib/modules/$(KERNELVERSION)/lib/
+INSTALL ?= /home/pengdonglin/src/kgtp/install
+KERNELDIR ?= /home/pengdonglin/src/qemu/aarch32/linux-4.10
+OUT ?= /home/pengdonglin/src/qemu/aarch32/linux-4.10/out_aarch32
+CROSS_COMPILE ?= arm-none-linux-gnueabi-
+MODULEDIR ?= $(INSTALL)/modules
 #ARCH ?= i386
 #ARCH ?= x86_64
 #ARCH ?= mips
-#ARCH ?= arm
+ARCH ?= arm
 
 export CONFIG_DEBUG_INFO=y
 
@@ -61,45 +62,47 @@ install: module_install others_install
 uninstall: module_uninstall others_uninstall
 
 dkms:
-	mkdir -p /usr/src/kgtp-$(MODULEVERSION)/
-	cp $(DKMS_FILES) /usr/src/kgtp-$(MODULEVERSION)/
+	mkdir -p $(INSTALL)/usr/src/kgtp-$(MODULEVERSION)/
+	cp $(DKMS_FILES) $(INSTALL)/usr/src/kgtp-$(MODULEVERSION)/
 
 module_install: gtp.ko
 	mkdir -p $(MODULEDIR)
 	cp gtp.ko $(MODULEDIR)
-	depmod -a
+	#depmod -a
 
 module_uninstall:
-	rm -rf $(MODULEDIR)gtp.ko
-	depmod -a
+	rm -rf $(MODULEDIR)/gtp.ko
+	#depmod -a
 
 others_install: program_install
 
 others_uninstall: program_uninstall
 
 program_install: getmod getframe putgtprsp
-	cp getmod /sbin/
-	chmod 700 /sbin/getmod
-	cp getframe /sbin/
-	chmod 700 /sbin/getframe
-	cp putgtprsp /sbin/
-	chmod 700 /sbin/putgtprsp
-	cp getgtprsp.pl /bin/
-	chmod 755 /bin/getgtprsp.pl
-	cp getmod.py /bin/
-	chmod 644 /bin/getmod.py
+	mkdir -p $(INSTALL)/sbin
+	cp getmod $(INSTALL)/sbin/
+	chmod 700 $(INSTALL)/sbin/getmod
+	cp getframe $(INSTALL)/sbin/
+	chmod 700 $(INSTALL)/sbin/getframe
+	cp putgtprsp $(INSTALL)/sbin/
+	chmod 700 $(INSTALL)/sbin/putgtprsp
+	mkdir -p $(INSTALL)/bin
+	cp getgtprsp.pl $(INSTALL)/bin/
+	chmod 755 $(INSTALL)/bin/getgtprsp.pl
+	cp getmod.py $(INSTALL)/bin/
+	chmod 644 $(INSTALL)/bin/getmod.py
 
 program_uninstall:
-	rm -rf /sbin/getmod
-	rm -rf /sbin/getframe
-	rm -rf /sbin/putgtprsp
-	rm -rf /bin/getgtprsp.pl
+	rm -rf $(INSTALL)/sbin/getmod
+	rm -rf $(INSTALL)/sbin/getframe
+	rm -rf $(INSTALL)/sbin/putgtprsp
+	rm -rf $(INSTALL)/bin/getgtprsp.pl
 
 gtp.ko: gtp.c gtp_rb.c ring_buffer.c ring_buffer.h perf_event.c
 ifneq ($(ARCH),)
-	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(PWD) modules
+	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) O=$(OUT) M=$(PWD) modules
 else
-	$(MAKE) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(PWD) modules
+	$(MAKE) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) O=$(OUT) M=$(PWD) modules
 endif
 
 getmod: getmod.c
@@ -125,7 +128,7 @@ endif
 
 plugin_example.ko: plugin_example.c gtp_plugin.h
 ifneq ($(ARCH),)
-	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(PWD) modules
+	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) O=$(OUT) M=$(PWD) modules
 else
-	$(MAKE) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(PWD) modules
+	$(MAKE) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) O=$(OUT) M=$(PWD) modules
 endif

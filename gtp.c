@@ -1308,8 +1308,8 @@ static int
 gtp_cooked_clock_hooks_get_val(struct gtp_trace_s *unused1,
 			       struct gtp_var *unused2, int64_t *val)
 {
-	*val = (int64_t)(__get_cpu_var(local_clock_current)
-				- __get_cpu_var(local_clock_offset));
+	*val = (int64_t)(get_cpu_var(local_clock_current)
+				- get_cpu_var(local_clock_offset));
 
 	return 0;
 }
@@ -1995,11 +1995,11 @@ gtp_step_id_hooks_get_val(struct gtp_trace_s *gts, struct gtp_var *gtv,
 			  int64_t *val)
 {
 	if (!gts->step) {
-		if (++ __get_cpu_var(gtp_step_id) == 0)
-			__get_cpu_var(gtp_step_id) = 1;
+		if (++ get_cpu_var(gtp_step_id) == 0)
+			get_cpu_var(gtp_step_id) = 1;
 	}
 
-	*val = __get_cpu_var(gtp_step_id);
+	*val = get_cpu_var(gtp_step_id);
 
 	return 0;
 }
@@ -3285,10 +3285,10 @@ pc_pe_list_disable(void)
 {
 	struct gtp_var_perf_event *ppl;
 
-	if (__get_cpu_var(pc_pe_list_all_disabled))
+	if (get_cpu_var(pc_pe_list_all_disabled))
 		return;
 
-	for (ppl = __get_cpu_var(pc_pe_list); ppl; ppl = ppl->pc_next) {
+	for (ppl = get_cpu_var(pc_pe_list); ppl; ppl = ppl->pc_next) {
 		if (ppl->en)
 #if (KGTP_API_VERSION_LOCAL < 20120808)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0))
@@ -3307,10 +3307,10 @@ pc_pe_list_enable(void)
 {
 	struct gtp_var_perf_event *ppl;
 
-	if (__get_cpu_var(pc_pe_list_all_disabled))
+	if (get_cpu_var(pc_pe_list_all_disabled))
 		return;
 
-	for (ppl = __get_cpu_var(pc_pe_list); ppl; ppl = ppl->pc_next) {
+	for (ppl = get_cpu_var(pc_pe_list); ppl; ppl = ppl->pc_next) {
 		if (ppl->en)
 #if (KGTP_API_VERSION_LOCAL < 20120808)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0))
@@ -3327,12 +3327,12 @@ pc_pe_list_enable(void)
 static void
 gtp_pc_pe_en(int enable)
 {
-	struct gtp_var_perf_event *ppl = __get_cpu_var(pc_pe_list);
+	struct gtp_var_perf_event *ppl = get_cpu_var(pc_pe_list);
 
-	for (ppl = __get_cpu_var(pc_pe_list); ppl; ppl = ppl->pc_next)
+	for (ppl = get_cpu_var(pc_pe_list); ppl; ppl = ppl->pc_next)
 		ppl->en = enable;
 
-	__get_cpu_var(pc_pe_list_all_disabled) = !enable;
+	get_cpu_var(pc_pe_list_all_disabled) = !enable;
 }
 
 static void
@@ -3668,7 +3668,7 @@ gtp_task_read(pid_t pid, struct task_struct *tsk, unsigned long addr,
 			ret = get_user_pages(&gtp_fake_task, mm, addr, 1, 0, 1, &page,
 				     &vma);
 #else
-			ret = get_user_pages(NULL, mm, addr, 1, 0, 1, &page, &vma);
+			ret = get_user_pages_remote(NULL, mm, addr, 1, FOLL_FORCE, &page, &vma, NULL);
 #endif
 		}
 		if (ret <= 0) {
@@ -3711,7 +3711,7 @@ gtp_task_read(pid_t pid, struct task_struct *tsk, unsigned long addr,
 #endif
 			else
 				kunmap(page);
-			page_cache_release(page);
+			put_page(page);
 		}
 		len -= bytes;
 		buf += bytes;
@@ -3939,7 +3939,7 @@ static int
 gtp_action_printk(struct gtp_trace_s *gts, ULONGEST addr, size_t size)
 {
 	unsigned int	printk_format = gts->printk_format;
-	char		*pbuf = __get_cpu_var(gtp_printf);
+	char		*pbuf = get_cpu_var(gtp_printf);
 
 	if (gts->printk_str == NULL) {
 		gts->tpe->reason = gtp_stop_agent_expr_code_error;
@@ -4513,8 +4513,8 @@ gtp_action_x(struct gtp_trace_s *gts, struct action *ae)
 	} cnv;
 	uint8_t		*ebuf = ae->u.exp.buf;
 	int		psize = GTP_PRINTF_MAX;
-	char		*pbuf = __get_cpu_var(gtp_printf);
-	ULONGEST	*stack = __get_cpu_var(action_x_stack);
+	char		*pbuf = get_cpu_var(gtp_printf);
+	ULONGEST	*stack = get_cpu_var(action_x_stack);
 
 	if (unlikely(ae->u.exp.need_var_lock))
 		spin_lock(&gtp_var_lock);
@@ -4565,8 +4565,8 @@ gtp_action_x(struct gtp_trace_s *gts, struct action *ae)
 		/* div_signed */
 		case 0x05:
 			if (top) {
-				LONGEST l = (LONGEST) stack[--sp];
-				do_div(l, (LONGEST) top);
+				ULONGEST l = (ULONGEST) stack[--sp];
+				do_div(l, (ULONGEST) top);
 				top = l;
 			} else
 				goto code_error_out;
@@ -4574,8 +4574,8 @@ gtp_action_x(struct gtp_trace_s *gts, struct action *ae)
 
 		case op_check_div_signed:
 			if (top && sp) {
-				LONGEST l = (LONGEST) stack[--sp];
-				do_div(l, (LONGEST) top);
+				ULONGEST l = (ULONGEST) stack[--sp];
+				do_div(l, (ULONGEST) top);
 				top = l;
 			} else
 				goto code_error_out;
@@ -4603,8 +4603,8 @@ gtp_action_x(struct gtp_trace_s *gts, struct action *ae)
 		/* rem_signed */
 		case 0x07:
 			if (top) {
-				LONGEST l1 = (LONGEST) stack[--sp];
-				LONGEST l2 = (LONGEST) top;
+				ULONGEST l1 = (ULONGEST) stack[--sp];
+				ULONGEST l2 = (ULONGEST) top;
 				top = do_div(l1, l2);
 			} else
 				goto code_error_out;
@@ -4612,8 +4612,8 @@ gtp_action_x(struct gtp_trace_s *gts, struct action *ae)
 
 		case op_check_rem_signed:
 			if (top && sp) {
-				LONGEST l1 = (LONGEST) stack[--sp];
-				LONGEST l2 = (LONGEST) top;
+				ULONGEST l1 = (ULONGEST) stack[--sp];
+				ULONGEST l2 = (ULONGEST) top;
 				top = do_div(l1, l2);
 			} else
 				goto code_error_out;
@@ -5297,7 +5297,7 @@ static int	gtp_have_pc_pe;
 static void
 gtp_handler_begin(void)
 {
-	if (!__get_cpu_var(gtp_handler_began)) {
+	if (!get_cpu_var(gtp_handler_began)) {
 #ifdef CONFIG_X86
 		if (gtp_access_cooked_rdtsc) {
 			u64	a;
@@ -5308,30 +5308,30 @@ gtp_handler_begin(void)
 #endif
 
 		if (gtp_access_cooked_clock)
-			__get_cpu_var(local_clock_current) = GTP_LOCAL_CLOCK;
+			get_cpu_var(local_clock_current) = GTP_LOCAL_CLOCK;
 
 #ifdef GTP_PERF_EVENTS
 		if (gtp_have_pc_pe)
 			pc_pe_list_disable();
 #endif
 
-		__get_cpu_var(gtp_handler_began) = 1;
+		get_cpu_var(gtp_handler_began) = 1;
 	}
 }
 
 static void
 gtp_handler_end(void)
 {
-	if (__get_cpu_var(gtp_handler_began)) {
+	if (get_cpu_var(gtp_handler_began)) {
 #ifdef GTP_PERF_EVENTS
 		if (gtp_have_pc_pe)
 			pc_pe_list_enable();
 #endif
 
 		if (gtp_access_cooked_clock) {
-			__get_cpu_var(local_clock_offset) += GTP_LOCAL_CLOCK
-					- __get_cpu_var(local_clock_current);
-			__get_cpu_var(local_clock_current) = 0;
+			get_cpu_var(local_clock_offset) += GTP_LOCAL_CLOCK
+					- get_cpu_var(local_clock_current);
+			get_cpu_var(local_clock_current) = 0;
 		}
 
 #ifdef CONFIG_X86
@@ -5345,7 +5345,7 @@ gtp_handler_end(void)
 		}
 #endif
 
-		__get_cpu_var(gtp_handler_began) = 0;
+		get_cpu_var(gtp_handler_began) = 0;
 	}
 }
 
@@ -7229,8 +7229,8 @@ reswitch:
 			/* div_signed */
 			case 0x05:
 				if (top && sp) {
-					LONGEST l = (LONGEST) stack[sp - 1];
-					do_div(l, (LONGEST) top);
+					ULONGEST l = (ULONGEST) stack[sp - 1];
+					do_div(l, (ULONGEST) top);
 					top = l;
 				} else if (top == 0) {
 					printk(KERN_WARNING "gtp_check_x_simple: div_signed "
@@ -7255,8 +7255,8 @@ reswitch:
 			/* rem_signed */
 			case 0x07:
 				if (top && sp) {
-					LONGEST l1 = (LONGEST) stack[sp - 1];
-					LONGEST l2 = (LONGEST) top;
+					ULONGEST l1 = (ULONGEST) stack[sp - 1];
+					ULONGEST l2 = (ULONGEST) top;
 					top = do_div(l1, l2);
 				} else if (top == 0) {
 					printk(KERN_WARNING "gtp_check_x_simple: rem_signed "
